@@ -15,6 +15,10 @@ function useGetMyshop() {
             dispatch(setMyShopData(result.data))
   
     } catch (error) {
+        if (error.response && error.response.status === 400) {
+          // unauthenticated or no shop - expected after logout
+          return
+        }
         console.log(error)
     }
 }

@@ -135,6 +135,11 @@ export const googleAuth=async (req,res) => {
         const {fullName,email,mobile,role}=req.body
         let user=await User.findOne({email})
         if(!user){
+            // Sign-in flow: no role/mobile provided → user must sign up first
+            if(!role || !mobile){
+                return res.status(404).json({message:"Account not found. Please Sign Up first."})
+            }
+            // Sign-up flow: create new user with Google
             user=await User.create({
                 fullName,email,mobile,role
             })

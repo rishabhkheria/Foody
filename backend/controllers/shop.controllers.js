@@ -3,20 +3,38 @@ import uploadOnCloudinary from "../utils/cloudinary.js";
 
 export const createEditShop=async (req,res) => {
     try {
-       const {name,city,state,address}=req.body
+       const {name,city,state,address,latitude,longitude}=req.body
        let image;
        if(req.file){
         console.log(req.file)
         image=await uploadOnCloudinary(req.file.path)
-       } 
+       }
+
+       let location
+       if (latitude !== undefined && longitude !== undefined) {
+        const latNum = Number(latitude)
+        const lonNum = Number(longitude)
+        if (!Number.isNaN(latNum) && !Number.isNaN(lonNum)) {
+            location = {
+                type: 'Point',
+                coordinates: [lonNum, latNum]
+            }
+        }
+       }
+
        let shop=await Shop.findOne({owner:req.userId})
        if(!shop){
         shop=await Shop.create({
-        name,city,state,address,image,owner:req.userId
+        name,city,state,address,image,location,owner:req.userId
        })
        }else{
+         const payload = {
+            name,city,state,address,owner:req.userId
+         }
+         if (image) payload.image = image
+         if (location) payload.location = location
          shop=await Shop.findByIdAndUpdate(shop._id,{
-        name,city,state,address,image,owner:req.userId
+        ...payload
        },{new:true})
        }
       

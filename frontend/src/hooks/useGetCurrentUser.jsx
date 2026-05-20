@@ -13,7 +13,11 @@ function useGetCurrentUser() {
             dispatch(setUserData(result.data))
   
     } catch (error) {
-        console.log(error)
+      if (error.response && error.response.status === 400) {
+        // not logged in - ignore
+        return
+      }
+      console.log(error)
     }
 }
 fetchUser()

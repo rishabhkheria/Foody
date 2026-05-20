@@ -221,12 +221,23 @@ export const updateOrderStatus = async (req, res) => {
         shopOrder.status = status
         let deliveryBoysPayload = []
         if (status == "out of delivery" && !shopOrder.assignment) {
-            const { longitude, latitude } = order.deliveryAddress
+            const shop = await Shop.findById(shopOrder.shop).select("location address name")
+            const shopLon = shop?.location?.coordinates?.[0]
+            const shopLat = shop?.location?.coordinates?.[1]
+
+            // Prefer restaurant coordinates for rider discovery; fallback to customer location.
+            const sourceLongitude = Number.isFinite(shopLon) && shopLon !== 0 ? Number(shopLon) : Number(order.deliveryAddress?.longitude)
+            const sourceLatitude = Number.isFinite(shopLat) && shopLat !== 0 ? Number(shopLat) : Number(order.deliveryAddress?.latitude)
+
+            if (!Number.isFinite(sourceLongitude) || !Number.isFinite(sourceLatitude)) {
+                return res.status(400).json({ message: "source coordinates not found for rider assignment" })
+            }
+
             const nearByDeliveryBoys = await User.find({
                 role: "deliveryBoy",
                 location: {
                     $near: {
-                        $geometry: { type: "Point", coordinates: [Number(longitude), Number(latitude)] },
+                        $geometry: { type: "Point", coordinates: [sourceLongitude, sourceLatitude] },
                         $maxDistance: 5000
                     }
                 }
@@ -241,7 +252,26 @@ export const updateOrderStatus = async (req, res) => {
 
             const busyIdSet = new Set(busyIds.map(id => String(id)))
 
-            const availableBoys = nearByDeliveryBoys.filter(b => !busyIdSet.has(String(b._id)))
+            let availableBoys = nearByDeliveryBoys.filter(b => !busyIdSet.has(String(b._id)))
+
+            // Fallback: if no nearby rider is available, broadcast to online free riders.
+            if (availableBoys.length === 0) {
+                const onlineDeliveryBoys = await User.find({
+                    role: "deliveryBoy",
+                    isOnline: true,
+                    socketId: { $ne: null }
+                })
+
+                const onlineIds = onlineDeliveryBoys.map(b => b._id)
+                const onlineBusyIds = await DeliveryAssignment.find({
+                    assignedTo: { $in: onlineIds },
+                    status: { $nin: ["brodcasted", "completed"] }
+                }).distinct("assignedTo")
+                const onlineBusySet = new Set(onlineBusyIds.map(id => String(id)))
+
+                availableBoys = onlineDeliveryBoys.filter(b => !onlineBusySet.has(String(b._id)))
+            }
+
             const candidates = availableBoys.map(b => b._id)
 
             if (candidates.length == 0) {
@@ -281,6 +311,11 @@ export const updateOrderStatus = async (req, res) => {
                             assignmentId: deliveryAssignment._id,
                             orderId: deliveryAssignment.order._id,
                             shopName: deliveryAssignment.shop.name,
+                            shopAddress: deliveryAssignment.shop.address,
+                            shopLocation: {
+                                lat: deliveryAssignment.shop?.location?.coordinates?.[1],
+                                lon: deliveryAssignment.shop?.location?.coordinates?.[0]
+                            },
                             deliveryAddress: deliveryAssignment.order.deliveryAddress,
                             items: deliveryAssignment.order.shopOrders.find(so => so._id.equals(deliveryAssignment.shopOrderId)).shopOrderItems || [],
                             subtotal: deliveryAssignment.order.shopOrders.find(so => so._id.equals(deliveryAssignment.shopOrderId))?.subtotal
@@ -347,6 +382,11 @@ export const getDeliveryBoyAssignment = async (req, res) => {
             assignmentId: a._id,
             orderId: a.order._id,
             shopName: a.shop.name,
+            shopAddress: a.shop.address,
+            shopLocation: {
+                lat: a.shop?.location?.coordinates?.[1],
+                lon: a.shop?.location?.coordinates?.[0]
+            },
             deliveryAddress: a.order.deliveryAddress,
             items: a.order.shopOrders.find(so => so._id.equals(a.shopOrderId)).shopOrderItems || [],
             subtotal: a.order.shopOrders.find(so => so._id.equals(a.shopOrderId))?.subtotal
@@ -447,6 +487,12 @@ export const getCurrentOrder = async (req, res) => {
             _id: assignment.order._id,
             user: assignment.order.user,
             shopOrder,
+            shopName: assignment.shop?.name,
+            shopAddress: assignment.shop?.address,
+            shopLocation: {
+                lat: assignment.shop?.location?.coordinates?.[1],
+                lon: assignment.shop?.location?.coordinates?.[0]
+            },
             deliveryAddress: assignment.order.deliveryAddress,
             deliveryBoyLocation,
             customerLocation
@@ -454,7 +500,7 @@ export const getCurrentOrder = async (req, res) => {
 
 
     } catch (error) {
-
+        return res.status(500).json({ message: `get current order error ${error}` })
     }
 }
 

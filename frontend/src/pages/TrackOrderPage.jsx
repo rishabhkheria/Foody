@@ -1,17 +1,17 @@
 import axios from 'axios'
 import React from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { serverUrl } from '../App'
+import { serverUrl, getSocket } from '../App'
 import { useEffect } from 'react'
 import { useState } from 'react'
 import { IoIosArrowRoundBack } from "react-icons/io";
 import DeliveryBoyTracking from '../components/DeliveryBoyTracking'
-import { useSelector } from 'react-redux'
+
 function TrackOrderPage() {
     const { orderId } = useParams()
     const [currentOrder, setCurrentOrder] = useState() 
     const navigate = useNavigate()
-    const {socket}=useSelector(state=>state.user)
+    const socket = getSocket()
     const [liveLocations,setLiveLocations]=useState({})
     const handleGetOrder = async () => {
         try {

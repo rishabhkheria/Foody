@@ -6,7 +6,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { RxCross2 } from "react-icons/rx";
 import axios from 'axios';
 import { serverUrl } from '../App';
-import { setSearchItems, setUserData } from '../redux/userSlice';
+import { setCurrentCity, setSearchItems, setUserData } from '../redux/userSlice';
 import { FaPlus } from "react-icons/fa6";
 import { TbReceipt2 } from "react-icons/tb";
 import { useNavigate } from 'react-router-dom';
@@ -25,6 +25,20 @@ function Nav() {
         } catch (error) {
             console.log(error)
         }
+    }
+
+    const handleChangeLocation = () => {
+        const nextCity = window.prompt('Enter your city name', currentCity || '')
+        if (!nextCity) return
+        const trimmedCity = nextCity.trim()
+        if (!trimmedCity) return
+        localStorage.setItem('preferredCity', trimmedCity)
+        dispatch(setCurrentCity(trimmedCity))
+    }
+
+    const handleUseCurrentLocation = () => {
+        localStorage.removeItem('preferredCity')
+        window.location.reload()
     }
 
     const handleSearchItems=async () => {
@@ -50,7 +64,9 @@ handleSearchItems()
             {showSearch && userData.role == "user" && <div className='w-[90%] h-[70px]  bg-white shadow-xl rounded-lg items-center gap-[20px] flex fixed top-[80px] left-[5%] md:hidden'>
                 <div className='flex items-center w-[30%] overflow-hidden gap-[10px] px-[10px] border-r-[2px] border-gray-400'>
                     <FaLocationDot size={25} className=" text-[#ff4d2d]" />
-                    <div className='w-[80%] truncate text-gray-600'>{currentCity}</div>
+                    <button type='button' onClick={handleChangeLocation} className='w-[80%] truncate text-left text-gray-600 hover:text-[#ff4d2d]'>
+                        {currentCity || 'Set location'}
+                    </button>
                 </div>
                 <div className='w-[80%] flex items-center gap-[10px]'>
                     <IoIosSearch size={25} className='text-[#ff4d2d]' />
@@ -64,7 +80,9 @@ handleSearchItems()
             {userData.role == "user" && <div className='md:w-[60%] lg:w-[40%] h-[70px] bg-white shadow-xl rounded-lg items-center gap-[20px] hidden md:flex'>
                 <div className='flex items-center w-[30%] overflow-hidden gap-[10px] px-[10px] border-r-[2px] border-gray-400'>
                     <FaLocationDot size={25} className=" text-[#ff4d2d]" />
-                    <div className='w-[80%] truncate text-gray-600'>{currentCity}</div>
+                    <button type='button' onClick={handleChangeLocation} className='w-[80%] truncate text-left text-gray-600 hover:text-[#ff4d2d]'>
+                        {currentCity || 'Set location'}
+                    </button>
                 </div>
                 <div className='w-[80%] flex items-center gap-[10px]'>
                     <IoIosSearch size={25} className='text-[#ff4d2d]' />
@@ -116,6 +134,8 @@ handleSearchItems()
                 {showInfo && <div className={`fixed top-[80px] right-[10px] 
                     ${userData.role=="deliveryBoy"?"md:right-[20%] lg:right-[40%]":"md:right-[10%] lg:right-[25%]"} w-[180px] bg-white shadow-2xl rounded-xl p-[20px] flex flex-col gap-[10px] z-[9999]`}>
                     <div className='text-[17px] font-semibold'>{userData.fullName}</div>
+                    {userData.role==="user" && <div className='text-[#ff4d2d] font-semibold cursor-pointer' onClick={handleChangeLocation}>Change Location</div>}
+                    {userData.role==="user" && <div className='text-[#ff4d2d] font-semibold cursor-pointer' onClick={handleUseCurrentLocation}>Use Current Location</div>}
                     {userData.role=="user" && <div className='md:hidden text-[#ff4d2d] font-semibold cursor-pointer' onClick={()=>navigate("/my-orders")}>My Orders</div>}
                     
                     <div className='text-[#ff4d2d] font-semibold cursor-pointer' onClick={handleLogOut}>Log Out</div>

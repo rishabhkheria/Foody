@@ -10,18 +10,26 @@ function useGetCity() {
     const {userData}=useSelector(state=>state.user)
     const apiKey=import.meta.env.VITE_GEOAPIKEY
     useEffect(()=>{
+const preferredCity=localStorage.getItem('preferredCity')
+if (preferredCity) {
+    dispatch(setCurrentCity(preferredCity))
+    return
+}
+
+if (!navigator.geolocation) return
+
 navigator.geolocation.getCurrentPosition(async (position)=>{
-    console.log(position)
     const latitude=position.coords.latitude
     const longitude=position.coords.longitude
     dispatch(setLocation({lat:latitude,lon:longitude}))
     const result=await axios.get(`https://api.geoapify.com/v1/geocode/reverse?lat=${latitude}&lon=${longitude}&format=json&apiKey=${apiKey}`)
-  console.log(result.data)
-    dispatch(setCurrentCity(result?.data?.results[0].city||result?.data?.results[0].county
-))
-    dispatch(setCurrentState(result?.data?.results[0].state))
-     dispatch(setCurrentAddress(result?.data?.results[0].address_line2 || result?.data?.results[0].address_line1 ))
-  dispatch(setAddress(result?.data?.results[0].address_line2))
+    const geoData=result?.data?.results?.[0]
+    dispatch(setCurrentCity(geoData?.city||geoData?.county))
+    dispatch(setCurrentState(geoData?.state))
+    dispatch(setCurrentAddress(geoData?.address_line2 || geoData?.address_line1 ))
+    dispatch(setAddress(geoData?.address_line2 || geoData?.address_line1))
+}, (error)=>{
+    console.log(error)
 })
     },[userData])
 }

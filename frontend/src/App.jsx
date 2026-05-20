@@ -23,9 +23,20 @@ import TrackOrderPage from './pages/TrackOrderPage'
 import Shop from './pages/Shop'
 import { useEffect } from 'react'
 import { io } from 'socket.io-client'
-import { setSocket } from './redux/userSlice'
 
 export const serverUrl="http://localhost:8000"
+
+let socketInstance = null
+export const getSocket = () => socketInstance
+
+// Redirects to '/' if the user's role is not allowed
+const RoleRoute = ({ element, allowedRoles }) => {
+  const { userData } = useSelector(state => state.user)
+  if (!userData) return <Navigate to="/signin" />
+  if (!allowedRoles.includes(userData.role)) return <Navigate to="/" />
+  return element
+}
+
 function App() {
     const {userData}=useSelector(state=>state.user)
     const dispatch=useDispatch()
@@ -38,33 +49,46 @@ useUpdateLocation()
   useGetMyOrders()
 
   useEffect(()=>{
-const socketInstance=io(serverUrl,{withCredentials:true})
-dispatch(setSocket(socketInstance))
+if (!socketInstance) {
+  socketInstance=io(serverUrl,{ transports: ['polling'], withCredentials:true })
+}
 socketInstance.on('connect',()=>{
 if(userData){
   socketInstance.emit('identity',{userId:userData._id})
 }
 })
 return ()=>{
-  socketInstance.disconnect()
+  if(socketInstance) {
+    socketInstance.disconnect()
+    socketInstance = null
+  }
 }
   },[userData?._id])
 
   return (
    <Routes>
+    {/* Public routes — redirect to home if already logged in */}
     <Route path='/signup' element={!userData?<SignUp/>:<Navigate to={"/"}/>}/>
     <Route path='/signin' element={!userData?<SignIn/>:<Navigate to={"/"}/>}/>
-      <Route path='/forgot-password' element={!userData?<ForgotPassword/>:<Navigate to={"/"}/>}/>
-      <Route path='/' element={userData?<Home/>:<Navigate to={"/signin"}/>}/>
-<Route path='/create-edit-shop' element={userData?<CreateEditShop/>:<Navigate to={"/signin"}/>}/>
-<Route path='/add-item' element={userData?<AddItem/>:<Navigate to={"/signin"}/>}/>
-<Route path='/edit-item/:itemId' element={userData?<EditItem/>:<Navigate to={"/signin"}/>}/>
-<Route path='/cart' element={userData?<CartPage/>:<Navigate to={"/signin"}/>}/>
-<Route path='/checkout' element={userData?<CheckOut/>:<Navigate to={"/signin"}/>}/>
-<Route path='/order-placed' element={userData?<OrderPlaced/>:<Navigate to={"/signin"}/>}/>
-<Route path='/my-orders' element={userData?<MyOrders/>:<Navigate to={"/signin"}/>}/>
-<Route path='/track-order/:orderId' element={userData?<TrackOrderPage/>:<Navigate to={"/signin"}/>}/>
-<Route path='/shop/:shopId' element={userData?<Shop/>:<Navigate to={"/signin"}/>}/>
+    <Route path='/forgot-password' element={!userData?<ForgotPassword/>:<Navigate to={"/"}/>}/>
+
+    {/* Common — any logged-in user */}
+    <Route path='/' element={userData?<Home/>:<Navigate to={"/signin"}/>}/>
+
+    {/* Owner only */}
+    <Route path='/create-edit-shop' element={<RoleRoute element={<CreateEditShop/>} allowedRoles={["owner"]}/>}/>
+    <Route path='/add-item' element={<RoleRoute element={<AddItem/>} allowedRoles={["owner"]}/>}/>
+    <Route path='/edit-item/:itemId' element={<RoleRoute element={<EditItem/>} allowedRoles={["owner"]}/>}/>
+
+    {/* User only */}
+    <Route path='/cart' element={<RoleRoute element={<CartPage/>} allowedRoles={["user"]}/>}/>
+    <Route path='/checkout' element={<RoleRoute element={<CheckOut/>} allowedRoles={["user"]}/>}/>
+    <Route path='/order-placed' element={<RoleRoute element={<OrderPlaced/>} allowedRoles={["user"]}/>}/>
+    <Route path='/track-order/:orderId' element={<RoleRoute element={<TrackOrderPage/>} allowedRoles={["user"]}/>}/>
+    <Route path='/shop/:shopId' element={<RoleRoute element={<Shop/>} allowedRoles={["user"]}/>}/>
+
+    {/* User + Owner */}
+    <Route path='/my-orders' element={<RoleRoute element={<MyOrders/>} allowedRoles={["user","owner"]}/>}/>
    </Routes>
   )
 }

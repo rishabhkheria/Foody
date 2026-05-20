@@ -44,9 +44,13 @@ function SignIn() {
          const {data}=await axios.post(`${serverUrl}/api/auth/google-auth`,{
              email:result.user.email,
          },{withCredentials:true})
+         if(data?.isNewUser){
+           setErr("Account not found. Please Sign Up first.")
+           return
+         }
          dispatch(setUserData(data))
        } catch (error) {
-         console.log(error)
+         setErr(error?.response?.data?.message || "Google sign in failed. Please sign up first.")
        }
           }
     return (

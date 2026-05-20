@@ -40,17 +40,25 @@ function CheckOut() {
 
 
   const onDragEnd = (e) => {
-    const { lat, lng } = e.target._latlng
-    dispatch(setLocation({ lat, lon: lng }))
-    getAddressByLatLng(lat, lng)
+    try {
+      const latlng = e?.target?.getLatLng ? e.target.getLatLng() : e?.target?._latlng
+      if (!latlng) return
+      const { lat, lng } = latlng
+      dispatch(setLocation({ lat, lon: lng }))
+      getAddressByLatLng(lat, lng)
+    } catch (err) {
+      console.log('onDragEnd error', err)
+    }
   }
   const getCurrentLocation = () => {
-      const latitude=userData.location.coordinates[1]
-      const longitude=userData.location.coordinates[0]
-      dispatch(setLocation({ lat: latitude, lon: longitude }))
-      getAddressByLatLng(latitude, longitude)
-   
-
+    if (!userData || !userData.location || !Array.isArray(userData.location.coordinates) || userData.location.coordinates.length < 2) {
+      console.log('user location not available')
+      return
+    }
+    const latitude = userData.location.coordinates[1]
+    const longitude = userData.location.coordinates[0]
+    dispatch(setLocation({ lat: latitude, lon: longitude }))
+    getAddressByLatLng(latitude, longitude)
   }
 
   const getAddressByLatLng = async (lat, lng) => {
@@ -66,7 +74,9 @@ function CheckOut() {
   const getLatLngByAddress = async () => {
     try {
       const result = await axios.get(`https://api.geoapify.com/v1/geocode/search?text=${encodeURIComponent(addressInput)}&apiKey=${apiKey}`)
-      const { lat, lon } = result.data.features[0].properties
+      const feature = result?.data?.features?.[0]
+      if (!feature) return
+      const { lat, lon } = feature.properties
       dispatch(setLocation({ lat, lon }))
     } catch (error) {
       console.log(error)
@@ -150,20 +160,22 @@ const openRazorpayWindow=(orderId,razorOrder)=>{
           </div>
           <div className='rounded-xl border overflow-hidden'>
             <div className='h-64 w-full flex items-center justify-center'>
-              <MapContainer
-                className={"w-full h-full"}
-                center={[location?.lat, location?.lon]}
-                zoom={16}
-              >
-                <TileLayer
-                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                />
-                <RecenterMap location={location} />
-                <Marker position={[location?.lat, location?.lon]} draggable eventHandlers={{ dragend: onDragEnd }} />
-
-
-              </MapContainer>
+              {location?.lat && location?.lon ? (
+                <MapContainer
+                  className={"w-full h-full"}
+                  center={[location.lat, location.lon]}
+                  zoom={16}
+                >
+                  <TileLayer
+                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  />
+                  <RecenterMap location={location} />
+                  <Marker position={[location.lat, location.lon]} draggable eventHandlers={{ dragend: onDragEnd }} />
+                </MapContainer>
+              ) : (
+                <div className='text-sm text-gray-500'>Location not available. Click the blue button to use current location or enter an address above.</div>
+              )}
             </div>
           </div>
         </section>

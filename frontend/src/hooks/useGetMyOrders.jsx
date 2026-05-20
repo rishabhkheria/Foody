@@ -17,6 +17,10 @@ function useGetMyOrders() {
 
 
     } catch (error) {
+        if (error.response && error.response.status === 400) {
+          // unauthenticated or no orders - expected after logout
+          return
+        }
         console.log(error)
     }
 }
